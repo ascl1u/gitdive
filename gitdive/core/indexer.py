@@ -1,8 +1,14 @@
 """Git repository indexer"""
 
+import hashlib
 from pathlib import Path
+from typing import List, Optional
 
+import chromadb
 import git
+from llama_index.core import Document, VectorStoreIndex
+from llama_index.vector_stores.chroma import ChromaVectorStore
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from rich.console import Console
 
 console = Console()
@@ -58,12 +64,82 @@ class GitIndexer:
         except Exception as e:
             console.print(f"[red]Error:[/red] Failed to validate repository: {str(e)}")
             return False
-    
-# TODO: Time-based filtering will be implemented in Phase 2
+
+    def _get_storage_path(self) -> Path:
+        """Generate unique storage path for this repository."""
+        repo_hash = hashlib.sha256(str(self.repo_path).encode()).hexdigest()[:16]
+        return Path.home() / ".gitdive" / "repos" / repo_hash
+
+    def _should_include_file(self, file_path: str) -> bool:
+        """Apply 3-layer filtering: .gitignore → global ignore → content heuristics."""
+        if not file_path:
+            return False
+        
+        # Layer 1: .gitignore (basic check for common patterns)
+        gitignore_patterns = ['.git/', '__pycache__/', 'node_modules/']
+        for pattern in gitignore_patterns:
+            if pattern in file_path:
+                return False
+        
+        # Layer 2: Global ignore list
+        ignore_patterns = ['.lock', '.png', '.jpg', '.pdf', '.zip', '.exe', '.dll']
+        for pattern in ignore_patterns:
+            if file_path.endswith(pattern):
+                return False
+        
+        # Layer 3: Basic content heuristics (file extension check)
+        return True
+
+    def _extract_added_lines(self, commit) -> str:
+        """Extract only + lines from commit diff."""
+        added_lines = []
+        try:
+            parent = commit.parents[0] if commit.parents else None
+            is_initial_commit = parent is None
+            
+            if is_initial_commit:
+                # For initial commits, get all file contents as "added"
+                for file_path in commit.stats.files.keys():
+                    if not self._should_include_file(file_path):
+                        continue
+                    
+                    try:
+                        # Get file content from the commit
+                        file_content = (commit.tree / file_path).data_stream.read().decode('utf-8', errors='ignore')
+                        # Apply size limit per file
+                        file_content = file_content[:10000]
+                        file_lines = file_content.split('\n')
+                        added_lines.extend(file_lines)
+                    except Exception:
+                        continue
+            else:
+                # Regular commit - process diff
+                diff_items = list(commit.diff(parent))
+                
+                for item in diff_items:
+                    file_path = item.b_path or item.a_path
+                    
+                    if not self._should_include_file(file_path):
+                        continue
+                        
+                    if not item.diff:
+                        continue
+                        
+                    diff_text = item.diff.decode('utf-8', errors='ignore')
+                    # Apply size limit per file diff
+                    diff_text = diff_text[:10000]
+                    for line in diff_text.split('\n'):
+                        if line.startswith('+') and not line.startswith('+++'):
+                            added_lines.append(line[1:])  # Remove + prefix
+                
+        except Exception:
+            pass  # Skip problematic commits
+        
+        return '\n'.join(added_lines)  # No total limit needed - already limited per file
     
     def index_repository(self) -> bool:
         """
-        Index the repository (Phase 1: basic structure only).
+        Index the repository with ChromaDB storage.
         
         Returns:
             bool: True if indexing succeeded
@@ -73,7 +149,7 @@ class GitIndexer:
                 console.print("[red]Error:[/red] Repository not validated. Call validate_repository() first.")
                 return False
             
-            # Get basic commit list (no filtering in Phase 1)
+            # Get basic commit list
             commits = self._get_commits()
             
             if not commits:
@@ -82,23 +158,52 @@ class GitIndexer:
             
             console.print(f"[blue]Found {len(commits)} commits to index[/blue]")
             
-            # TODO: Phase 2 - Implement actual indexing logic
-            # For now, just simulate the process
-            for i, commit in enumerate(commits[:5], 1):  # Show first 5 commits only
-                console.print(f"[dim]Processing commit {i}: {commit.hexsha[:8]} - {commit.summary}[/dim]")
-                # In Phase 2, this will extract diffs and create documents
+            # Set up ChromaDB storage
+            storage_path = self._get_storage_path()
+            storage_path.mkdir(parents=True, exist_ok=True)
             
-            if len(commits) > 5:
-                console.print(f"[dim]... and {len(commits) - 5} more commits[/dim]")
+            # Initialize ChromaDB
+            chroma_client = chromadb.PersistentClient(path=str(storage_path))
+            chroma_collection = chroma_client.get_or_create_collection("commits")
+            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
             
-            console.print("[green]✓[/green] Repository validation and basic indexing structure completed")
+            # Initialize local embedding model
+            embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+            index = VectorStoreIndex.from_vector_store(vector_store, embed_model=embed_model)
+            
+            # Process commits
+            documents_created = 0
+            for commit in commits:
+                diff_content = self._extract_added_lines(commit)
+                
+                if diff_content.strip():  # Only create document if we have content
+                    # Combine commit message and diff content for better search
+                    full_text = f"{commit.summary}\n\n{diff_content}"
+                    doc = Document(
+                        text=full_text,
+                        metadata={
+                            "commit_hash": commit.hexsha,
+                            "author": f"{commit.author.name} <{commit.author.email}>",
+                            "date": str(commit.authored_datetime)
+                        }
+                    )
+                    index.insert(doc)
+                    documents_created += 1
+                    
+                    if documents_created <= 5:  # Show first 5 for verification
+                        console.print(f"[dim]Indexed commit: {commit.hexsha[:8]} - {commit.summary}[/dim]")
+            
+            if documents_created > 5:
+                console.print(f"[dim]... and {documents_created - 5} more commits indexed[/dim]")
+            
+            console.print(f"[green]✓[/green] Created {documents_created} documents in ChromaDB at {storage_path}")
             return True
             
         except Exception as e:
             console.print(f"[red]Error during indexing:[/red] {str(e)}")
             return False
     
-    def _get_commits(self) -> list:
+    def _get_commits(self) -> List[git.Commit]:
         """Get basic list of commits (Phase 1: no filtering)."""
         try:
             commits = []
