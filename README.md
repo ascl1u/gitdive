@@ -18,10 +18,6 @@ gitdive index
 # Index specific repository
 gitdive index /path/to/repo
 
-# Incremental update
-gitdive index --incremental
-```
-
 ### Ask questions
 ```bash
 gitdive ask "What changes were made to the authentication system?"
