@@ -38,6 +38,7 @@ def index(
     path: Optional[str] = typer.Argument(
         None, help="Path to git repository (defaults to current directory)"
     ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed timing information"),
 ):
     """Index git repository history for natural language queries."""
     from .core.indexer import GitIndexer
@@ -53,7 +54,7 @@ def index(
         raise typer.Exit(1)
     
     # Start indexing process
-    success = indexer.index_repository()
+    success = indexer.index_repository(verbose=verbose)
     
     if success:
         console.print("[green]✓[/green] Repository indexed successfully")
@@ -65,11 +66,22 @@ def index(
 @app.command()
 def ask(
     question: str = typer.Argument(..., help="Question about the repository history"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed timing information"),
 ):
     """Ask questions about the repository history using natural language."""
-    console.print("[yellow]Note:[/yellow] Ask command not yet implemented in Phase 1")
+    from .core.query import QueryService
+    from .core.config import GitDiveConfig
+    
+    # Echo question with consistent theming
     console.print(f"[blue]Question:[/blue] {question}")
-    # TODO: Implement in Phase 4
+    
+    # Process query
+    config = GitDiveConfig.default()
+    query_service = QueryService(Path.cwd(), config)
+    success = query_service.ask(question, verbose=verbose)
+    
+    if not success:
+        raise typer.Exit(1)
 
 
 @app.command()

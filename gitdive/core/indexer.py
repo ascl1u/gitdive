@@ -12,6 +12,7 @@ from .git_cli import GitCommand
 from .processor import CommitProcessor
 from .reporter import ProgressReporter
 from .storage import StorageManager
+from .timing import PipelineTimer
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -74,46 +75,68 @@ class GitIndexer:
         return self.storage_manager.load_existing_index(self.repo_path)
     
 
-    def index_repository(self) -> bool:
+    def index_repository(self, verbose: bool = False) -> bool:
         """
         Index the repository using component-based architecture.
         
+        Args:
+            verbose: Enable detailed timing information
+            
         Returns:
             bool: True if indexing succeeded
         """
+        timer = PipelineTimer(verbose)
+        
         try:
+            timer.start_pipeline()
+            
             # Report start
             self.progress_reporter.report_start(self.repo_path)
             
             # Setup storage
+            timer.start_step("Vector store setup")
             index = self.storage_manager.setup_storage(self.repo_path)
             if not index:
                 console.print("[red]Error:[/red] Failed to setup vector store")
                 return False
+            timer.end_step("Vector store setup")
             
             # Extract commits (batch processing using git CLI)
+            timer.start_step("Git commit extraction")
             commits = self.commit_processor.extract_commits()
+            timer.end_step("Git commit extraction")
             
             # Report commits found
             self.progress_reporter.report_commits_found(len(commits))
+            timer.log_processing_stats("Commit extraction", len(commits))
             
             if not commits:
                 console.print("[blue]No commits found with indexable content[/blue]")
+                timer.end_pipeline()
                 return True  # Success - nothing to index
             
             # Build documents
+            timer.start_step("Document building")
             documents = self.document_builder.build_documents(commits)
+            total_content_size = sum(len(doc.text) for doc in documents)
+            timer.end_step("Document building")
+            timer.log_processing_stats("Document building", len(documents), total_content_size)
             
             # Insert documents in batch
+            timer.start_step("Embedding generation and storage")
             documents_created = self.storage_manager.batch_insert_documents(index, documents)
+            timer.end_step("Embedding generation and storage")
+            timer.log_processing_stats("Document storage", documents_created)
             
             # Report completion
             storage_path = self.storage_manager.get_storage_path(self.repo_path)
             self.progress_reporter.report_completion(documents_created, storage_path)
             
+            timer.end_pipeline()
             # Success if we processed everything without errors
             return True
             
         except Exception as e:
+            timer.log_timing(f"Indexing failed with error: {str(e)}")
             console.print(f"[red]Error during indexing:[/red] {str(e)}")
             return False 

@@ -9,9 +9,9 @@ import os
 @dataclass
 class LLMConfig:
     """Configuration for LLM integration."""
-    model: str = "llama3.2"
+    model: str = "phi3:3.8b"
     base_url: str = "http://localhost:11434"
-    timeout: int = 60
+    timeout: int = 180
     stream: bool = True
     
     @classmethod

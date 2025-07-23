@@ -28,6 +28,7 @@ dependencies = [
     "llama-index>=0.12.0",
     "llama-index-vector-stores-chroma>=0.3.0",
     "llama-index-embeddings-huggingface>=0.3.0",
+    "llama-index-llms-ollama>=0.3.0",
     "chromadb>=0.4.0",
     "rich>=13.0.0",
 ]
