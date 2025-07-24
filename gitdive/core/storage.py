@@ -18,7 +18,14 @@ class StorageManager:
     """Handles ChromaDB storage operations."""
     
     def __init__(self):
-        self.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        # Create cache directory for embedding model to avoid download delays
+        cache_dir = Path.home() / ".gitdive" / "models"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.embed_model = HuggingFaceEmbedding(
+            model_name="BAAI/bge-small-en-v1.5",
+            cache_folder=str(cache_dir)
+        )
     
     def get_storage_path(self, repo_path: Path) -> Path:
         """Generate unique storage path for repository."""
