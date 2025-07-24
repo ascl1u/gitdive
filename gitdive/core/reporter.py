@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from rich.console import Console
+from .constants import COMMIT_HASH_DISPLAY_LENGTH, PROGRESS_DOTS_PER_LINE
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -34,14 +35,14 @@ class ProgressReporter:
         console.file.flush()  # Force immediate output
         self.dots_printed += 1
         
-        # Add line break every 50 dots for readability
-        if self.dots_printed % 50 == 0:
+        # Add line break for readability
+        if self.dots_printed % PROGRESS_DOTS_PER_LINE == 0:
             console.print()
     
     def report_processing_commit(self, commit_hash: str, summary: str, position: int):
         """Report individual commit processing (for first few)."""
         if position <= 5:
-            console.print(f"[dim]Processed commit: {commit_hash[:8]} - {summary}[/dim]")
+            console.print(f"[dim]Processed commit: {commit_hash[:COMMIT_HASH_DISPLAY_LENGTH]} - {summary}[/dim]")
     
     def report_completion(self, count: int, storage_path: Path):
         """Report indexing completion."""

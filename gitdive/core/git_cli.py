@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from rich.console import Console
+from .constants import GIT_LOG_FORMAT, GIT_FIELD_COUNT
 
 console = Console()
 
@@ -57,7 +58,7 @@ class GitCommand:
         """Get all commits with metadata."""
         try:
             # Format: hash|subject|author_name|author_email|date
-            format_str = '%H\x1F%s\x1F%an\x1F%ae\x1F%ai'
+            format_str = GIT_LOG_FORMAT
             output = self.run(['log', f'--format={format_str}'])
             
             commits = []
@@ -65,8 +66,8 @@ class GitCommand:
                 if not line:
                     continue
                     
-                parts = line.split('\x1F', 4)
-                if len(parts) == 5:
+                parts = line.split('\x1F', GIT_FIELD_COUNT - 1)
+                if len(parts) == GIT_FIELD_COUNT:
                     hash_val, summary, author_name, author_email, date = parts
                     commits.append({
                         'hash': hash_val,

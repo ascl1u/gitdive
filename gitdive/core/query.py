@@ -12,6 +12,7 @@ from .config import GitDiveConfig
 from .storage import StorageManager
 from .timing import PipelineTimer
 from .prompts import ASK_SYSTEM_PROMPT
+from .constants import DEFAULT_SIMILARITY_TOP_K, TIMING_LOG_PREVIEW_LENGTH
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -72,13 +73,13 @@ class QueryService:
             timer.start_step("Vector retrieval from ChromaDB")
             
             # First, manually retrieve similar documents to see what's being sent
-            retriever = index.as_retriever(similarity_top_k=1)
+            retriever = index.as_retriever(similarity_top_k=DEFAULT_SIMILARITY_TOP_K)
             retrieved_nodes = retriever.retrieve(question)
             timer.end_step("Vector retrieval from ChromaDB")
             
             timer.log_timing(f"Retrieved {len(retrieved_nodes)} documents from vector store")
             for i, node in enumerate(retrieved_nodes):
-                content_preview = node.text[:100] + "..." if len(node.text) > 100 else node.text
+                content_preview = node.text[:TIMING_LOG_PREVIEW_LENGTH] + "..." if len(node.text) > TIMING_LOG_PREVIEW_LENGTH else node.text
                 timer.log_timing(f"Document {i+1}: {len(node.text)} chars - '{content_preview}'")
             
             timer.start_step("LLM query execution")
@@ -121,20 +122,14 @@ class QueryService:
     def _create_query_engine(self, index: VectorStoreIndex):
         """Create query engine with Ollama LLM configuration."""
         try:
-            # Initialize Ollama LLM with conservative configuration
-            llm = Ollama(
-                model=self.config.llm.model,
-                base_url=self.config.llm.base_url,
-                request_timeout=self.config.llm.timeout,
-                context_window=2048,  # Limit context to prevent memory issues
-                num_predict=256       # Limit response length
-            )
+            # Initialize Ollama LLM with consistent configuration
+            llm = self.config.create_ollama_llm()
             
             # Create query engine with minimal context for maximum speed
             query_engine = index.as_query_engine(
                 llm=llm,
                 system_prompt=ASK_SYSTEM_PROMPT,
-                similarity_top_k=1  # Limit to 1 most relevant commit for fastest responses
+                similarity_top_k=DEFAULT_SIMILARITY_TOP_K
             )
             
             return query_engine

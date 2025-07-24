@@ -10,6 +10,12 @@ from rich.console import Console
 from .models import CommitData
 from .config import GitDiveConfig
 from .prompts import INDEX_SUMMARIZATION_PROMPT
+from .constants import (
+    FILE_SIZE_LIMIT, 
+    COMMIT_HASH_DISPLAY_LENGTH,
+    LLM_PROCESSING_CONTENT_LENGTH,
+    FALLBACK_SUMMARY_LENGTH
+)
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -49,23 +55,17 @@ class DocumentBuilder:
         """Summarize commit using LLM for better context during ask queries."""
         try:
             # Log which model is being used for sanity check
-            console.print(f"[dim]Summarizing commit {commit_data.hash[:8]} using model: {self.config.llm.model}[/dim]")
+            console.print(f"[dim]Summarizing commit {commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH]} using model: {self.config.llm.model}[/dim]")
             
-            # Initialize Ollama LLM with same configuration as ask command
-            llm = Ollama(
-                model=self.config.llm.model,
-                base_url=self.config.llm.base_url,
-                request_timeout=self.config.llm.timeout,
-                context_window=2048,  # Limit context to prevent memory issues
-                num_predict=256       # Limit response length
-            )
+            # Initialize Ollama LLM with consistent configuration
+            llm = self.config.create_ollama_llm()
             
             # Create prompt for commit summarization with minimal content for debugging
             prompt = INDEX_SUMMARIZATION_PROMPT.format(
-                commit_hash=commit_data.hash[:8],
+                commit_hash=commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH],
                 commit_message=commit_data.summary,
                 author=commit_data.author,
-                content=commit_data.content[:200]  # Very small content for debugging
+                content=commit_data.content[:LLM_PROCESSING_CONTENT_LENGTH]
             )
             
             console.print(f"[dim]Prompt length: {len(prompt)} chars[/dim]")
@@ -76,8 +76,8 @@ class DocumentBuilder:
             
         except Exception as e:
             # Fallback to truncated raw content if LLM fails
-            console.print(f"[yellow]Warning:[/yellow] LLM summarization failed for commit {commit_data.hash[:8]}: {str(e)}")
-            fallback = f"{commit_data.summary}\n\n{commit_data.content[:500]}"
-            if len(commit_data.content) > 500:
+            console.print(f"[yellow]Warning:[/yellow] LLM summarization failed for commit {commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH]}: {str(e)}")
+            fallback = f"{commit_data.summary}\n\n{commit_data.content[:FALLBACK_SUMMARY_LENGTH]}"
+            if len(commit_data.content) > FALLBACK_SUMMARY_LENGTH:
                 fallback += "..."
             return fallback 

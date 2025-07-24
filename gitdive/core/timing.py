@@ -4,6 +4,7 @@ import time
 import logging
 from typing import Dict, Optional
 from rich.console import Console
+from .constants import TIMING_LOG_PREVIEW_LENGTH
 
 console = Console(force_terminal=True)
 
@@ -64,7 +65,7 @@ class PipelineTimer:
     def log_prompt_info(self, prompt_type: str, content_preview: str, total_length: int):
         """Log key sections of prompts without full content."""
         if self.verbose:
-            preview = content_preview[:100] + "..." if len(content_preview) > 100 else content_preview
+            preview = content_preview[:TIMING_LOG_PREVIEW_LENGTH] + "..." if len(content_preview) > TIMING_LOG_PREVIEW_LENGTH else content_preview
             console.print(f"[dim][PROMPT] {prompt_type} ({total_length} chars): '{preview}'[/dim]")
     
     def log_processing_stats(self, operation: str, count: int, total_size: int = 0):

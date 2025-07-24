@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Optional
 import os
 
+from llama_index.llms.ollama import Ollama
+from .constants import LLM_CONTEXT_WINDOW, LLM_TOKEN_LIMIT
+
 
 @dataclass
 class LLMConfig:
@@ -35,4 +38,14 @@ class GitDiveConfig:
         """Create default configuration."""
         return cls(
             llm=LLMConfig.from_env()
+        )
+    
+    def create_ollama_llm(self) -> Ollama:
+        """Create Ollama LLM with consistent configuration."""
+        return Ollama(
+            model=self.llm.model,
+            base_url=self.llm.base_url,
+            request_timeout=self.llm.timeout,
+            context_window=LLM_CONTEXT_WINDOW,
+            num_predict=LLM_TOKEN_LIMIT
         ) 

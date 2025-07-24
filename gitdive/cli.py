@@ -94,8 +94,36 @@ def stats():
 @app.command()
 def cleanup():
     """Clean up stored indexes and temporary files."""
-    console.print("[yellow]Note:[/yellow] Cleanup command not yet implemented in Phase 1")
-    # TODO: Implement in Phase 5
+    from .core.git_cli import GitCommand
+    from .core.storage import StorageManager
+    
+    # Use current directory as repository path
+    repo_path = Path.cwd()
+    
+    # Validate repository access
+    git_cmd = GitCommand(repo_path)
+    if not git_cmd.validate_repository():
+        console.print("[red]Error:[/red] Invalid or inaccessible git repository")
+        raise typer.Exit(1)
+    
+    # Ask for user confirmation
+    if not typer.confirm(f"Delete index for repository: {repo_path}?"):
+        console.print("[blue]Cleanup cancelled[/blue]")
+        raise typer.Exit(0)
+    
+    # Perform cleanup
+    storage_manager = StorageManager()
+    success, message, cleaned_path = storage_manager.cleanup_repository_index(repo_path)
+    
+    if success:
+        if cleaned_path:
+            console.print(f"[green]✓[/green] {message}")
+            console.print(f"[dim]Removed: {cleaned_path}[/dim]")
+        else:
+            console.print(f"[blue]{message}[/blue]")
+    else:
+        console.print(f"[red]Error:[/red] {message}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
