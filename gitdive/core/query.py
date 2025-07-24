@@ -11,15 +11,9 @@ from rich.console import Console
 from .config import GitDiveConfig
 from .storage import StorageManager
 from .timing import PipelineTimer
+from .prompts import ASK_SYSTEM_PROMPT
 
 console = Console(force_terminal=True, file=sys.stdout)
-
-# Simple prompt template for repository analysis
-SYSTEM_PROMPT = """You are analyzing git repository commit history. 
-Answer questions based on the provided commit data.
-Give brief, direct answers. Cite specific commits with hash (first 8 characters) when relevant.
-If you cannot find relevant information, say so clearly.
-Keep responses under 3 sentences."""
 
 
 class QueryService:
@@ -91,7 +85,7 @@ class QueryService:
             timer.log_llamaindex_operation("Initializing query engine for LLM processing")
             
             # Log the system prompt being used
-            timer.log_prompt_info("System prompt", SYSTEM_PROMPT, len(SYSTEM_PROMPT))
+            timer.log_prompt_info("System prompt", ASK_SYSTEM_PROMPT, len(ASK_SYSTEM_PROMPT))
             
             # Log the question and context being sent
             context_text = retrieved_nodes[0].text if retrieved_nodes else "No context"
@@ -139,7 +133,7 @@ class QueryService:
             # Create query engine with minimal context for maximum speed
             query_engine = index.as_query_engine(
                 llm=llm,
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=ASK_SYSTEM_PROMPT,
                 similarity_top_k=1  # Limit to 1 most relevant commit for fastest responses
             )
             

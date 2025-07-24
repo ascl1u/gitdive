@@ -13,6 +13,7 @@ from .processor import CommitProcessor
 from .reporter import ProgressReporter
 from .storage import StorageManager
 from .timing import PipelineTimer
+from .config import GitDiveConfig
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -24,13 +25,16 @@ class GitIndexer:
         """Initialize indexer with repository path and components."""
         self.repo_path = Path(repo_path).resolve()
         
+        # Initialize configuration for LLM integration
+        self.config = GitDiveConfig.default()
+        
         # Initialize git command utility
         self.git_cmd = GitCommand(self.repo_path)
         
         # Initialize components
         self.storage_manager = StorageManager()
         self.commit_processor = CommitProcessor(self.git_cmd)
-        self.document_builder = DocumentBuilder()
+        self.document_builder = DocumentBuilder(self.config)  # Pass config for LLM summarization
         self.progress_reporter = ProgressReporter()
         
         # Connect progress callback
