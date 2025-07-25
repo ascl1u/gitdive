@@ -85,13 +85,6 @@ def ask(
 
 
 @app.command()
-def stats():
-    """Show statistics about indexed repositories."""
-    console.print("[yellow]Note:[/yellow] Stats command not yet implemented in Phase 1")
-    # TODO: Implement in Phase 5
-
-
-@app.command()
 def cleanup():
     """Clean up stored indexes and temporary files."""
     from .core.git_cli import GitCommand

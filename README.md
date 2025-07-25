@@ -1,39 +1,60 @@
 # GitDive
 
-CLI tool for natural language conversations with git repository history.
+CLI tool for natural language conversations with git repository history. Index commits and ask questions about your project's evolution using a local llm.
+
+## Prerequisites
+
+- Python 3.9+
+- [Ollama](https://ollama.ai) with a compatible model:
+  ```bash
+  ollama pull phi3:3.8b  # Recommended
+  ```
 
 ## Installation
 
 ```bash
-pip install -e .
+pip install gitdive
 ```
 
 ## Usage
 
-### Index a repository
+**Index a repository:**
 ```bash
-# Index current repository
-gitdive index
-
-# Index specific repository
-gitdive index /path/to/repo
-
-### Ask questions
-```bash
-gitdive ask "What changes were made to the authentication system?"
+gitdive index                    # Current directory
+gitdive index /path/to/repo      # Specific repository
+gitdive index --verbose          # Show timing details
 ```
 
-### Other commands
+**Ask questions:**
 ```bash
-gitdive stats    # Show indexing statistics
-gitdive cleanup  # Clean up stored indexes
+gitdive ask "What changed in the authentication system?"
+gitdive ask "Who worked on the API endpoints?"
+gitdive ask "When was the database schema last modified?"
 ```
+
+**Cleanup:**
+```bash
+gitdive cleanup  # Remove stored index
+```
+
+## Configuration
+
+Configure via environment variables:
+
+```bash
+export GITDIVE_LLM_MODEL="llama3.1:8b"        # Default: phi3:3.8b
+export GITDIVE_OLLAMA_URL="http://localhost:11434"  # Default
+export GITDIVE_LLM_TIMEOUT="300"              # Default: 180
+```
+
+Indexes are stored in `~/.gitdive/repos/`
 
 ## Requirements
 
-- Python 3.13+
-- Git repository 
+- Python 3.9+
+- Git repository
+- Ollama with compatible model
 
 ## License
 
-Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache License 2.0
