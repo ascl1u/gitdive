@@ -1,34 +1,20 @@
 """Document building for GitDive."""
 
 from typing import List
-import sys
 
 from llama_index.core import Document
-from llama_index.llms.ollama import Ollama
-from rich.console import Console
 
 from .models import CommitData
-from .config import GitDiveConfig
-from .prompts import INDEX_SUMMARIZATION_PROMPT
-from .constants import (
-    FILE_SIZE_LIMIT, 
-    COMMIT_HASH_DISPLAY_LENGTH,
-    LLM_PROCESSING_CONTENT_LENGTH,
-    FALLBACK_SUMMARY_LENGTH
-)
-
-console = Console(force_terminal=True, file=sys.stdout)
-
 
 class DocumentBuilder:
-    """Handles document creation from commit data."""
+    """Handles document creation from commit data using raw content indexing."""
     
-    def __init__(self, config: GitDiveConfig):
-        """Initialize with configuration for LLM summarization."""
-        self.config = config
+    def __init__(self, config=None):
+        """Initialize document builder. Config no longer needed for raw indexing."""
+        pass
     
     def build_documents(self, commits: List[CommitData]) -> List[Document]:
-        """Build LlamaIndex documents from commit data."""
+        """Build LlamaIndex documents from commit data using raw content."""
         documents = []
         
         for commit_data in commits:
@@ -38,46 +24,24 @@ class DocumentBuilder:
         return documents
     
     def _create_document(self, commit_data: CommitData) -> Document:
-        """Create a single document from commit data using LLM summarization."""
-        # Use LLM to create semantic summary instead of raw content
-        summary = self._summarize_commit(commit_data)
+        """Create a document with raw git diff content and rich metadata."""
+        # Create structured content preserving git semantics
+        content = f"""Commit: {commit_data.hash[:8]}
+Author: {commit_data.author}
+Date: {commit_data.date}
+Message: {commit_data.summary}
+
+Changes:
+{commit_data.content}"""
         
         return Document(
-            text=summary,
+            text=content,
             metadata={
                 "commit_hash": commit_data.hash,
+                "commit_short_hash": commit_data.hash[:8],
                 "author": commit_data.author,
-                "date": commit_data.date
+                "date": commit_data.date,
+                "summary": commit_data.summary,
+                "content_length": len(commit_data.content)
             }
-        )
-    
-    def _summarize_commit(self, commit_data: CommitData) -> str:
-        """Summarize commit using LLM for better context during ask queries."""
-        try:
-            # Log which model is being used for sanity check
-            console.print(f"[dim]Summarizing commit {commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH]} using model: {self.config.llm.model}[/dim]")
-            
-            # Initialize Ollama LLM with consistent configuration
-            llm = self.config.create_ollama_llm()
-            
-            # Create prompt for commit summarization with minimal content for debugging
-            prompt = INDEX_SUMMARIZATION_PROMPT.format(
-                commit_hash=commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH],
-                commit_message=commit_data.summary,
-                author=commit_data.author,
-                content=commit_data.content[:LLM_PROCESSING_CONTENT_LENGTH]
-            )
-            
-            console.print(f"[dim]Prompt length: {len(prompt)} chars[/dim]")
-            
-            # Generate semantic summary
-            response = llm.complete(prompt)
-            return str(response)
-            
-        except Exception as e:
-            # Fallback to truncated raw content if LLM fails
-            console.print(f"[yellow]Warning:[/yellow] LLM summarization failed for commit {commit_data.hash[:COMMIT_HASH_DISPLAY_LENGTH]}: {str(e)}")
-            fallback = f"{commit_data.summary}\n\n{commit_data.content[:FALLBACK_SUMMARY_LENGTH]}"
-            if len(commit_data.content) > FALLBACK_SUMMARY_LENGTH:
-                fallback += "..."
-            return fallback 
+        ) 

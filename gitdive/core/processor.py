@@ -7,7 +7,7 @@ from rich.console import Console
 
 from .git_cli import GitCommand
 from .models import CommitData
-from .constants import FILE_SIZE_LIMIT, COMMIT_HASH_DISPLAY_LENGTH, IGNORE_FILE_PATTERNS
+from .constants import COMMIT_HASH_DISPLAY_LENGTH, IGNORE_FILE_PATTERNS
 
 console = Console(force_terminal=True, file=sys.stdout)
 
@@ -80,7 +80,6 @@ class CommitProcessor:
             
             file_content = self.git_cmd.get_file_content_at_commit(commit_hash, file_path)
             if file_content:
-                file_content = file_content[:FILE_SIZE_LIMIT]  # Size limit per file
                 file_lines = file_content.split('\n')
                 added_lines.extend(file_lines)
         
@@ -113,9 +112,9 @@ class CommitProcessor:
                     else:
                         current_file = file_with_prefix  # No prefix
             elif current_file and self._should_include_file(current_file):
-                # Only extract added lines (+ lines) from the diff
-                if line.startswith('+') and not line.startswith('+++'):
-                    filtered_lines.append(line[1:])  # Remove + prefix
+                # Extract both added (+) and removed (-) lines from the diff
+                if (line.startswith('+') and not line.startswith('+++')) or (line.startswith('-') and not line.startswith('---')):
+                    filtered_lines.append(line)  # Keep prefix to preserve git diff format
         
         return '\n'.join(filtered_lines)
     

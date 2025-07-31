@@ -34,7 +34,7 @@ class GitIndexer:
         # Initialize components
         self.storage_manager = StorageManager()
         self.commit_processor = CommitProcessor(self.git_cmd)
-        self.document_builder = DocumentBuilder(self.config)  # Pass config for LLM summarization
+        self.document_builder = DocumentBuilder()  # No longer needs config for raw indexing
         self.progress_reporter = ProgressReporter()
         
         # Connect progress callback

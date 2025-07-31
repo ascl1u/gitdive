@@ -99,10 +99,15 @@ class QueryService:
             timer.end_step("LLM query execution")
             timer.end_step("Vector similarity search")
             
-            # Display response
+            # Display response with streaming support
             timer.start_step("Response processing")
             if response and str(response).strip():
-                console.print(str(response))
+                # Handle streaming response by printing directly
+                response_text = str(response)
+                if response_text:
+                    console.print(response_text)
+                else:
+                    console.print("[yellow]Note:[/yellow] No relevant commits found for your question.")
             else:
                 console.print("[yellow]Note:[/yellow] No relevant commits found for your question.")
             timer.end_step("Response processing")
@@ -120,16 +125,19 @@ class QueryService:
         return self.storage_manager.load_existing_index(self.repo_path)
     
     def _create_query_engine(self, index: VectorStoreIndex):
-        """Create query engine with Ollama LLM configuration."""
+        """Create query engine with Ollama LLM configuration and multi-document support."""
         try:
             # Initialize Ollama LLM with consistent configuration
             llm = self.config.create_ollama_llm()
             
-            # Create query engine with minimal context for maximum speed
+            # Create query engine optimized for multi-document processing and speed
             query_engine = index.as_query_engine(
                 llm=llm,
                 system_prompt=ASK_SYSTEM_PROMPT,
-                similarity_top_k=DEFAULT_SIMILARITY_TOP_K
+                similarity_top_k=DEFAULT_SIMILARITY_TOP_K,
+                response_mode="compact",  # Combines multiple documents intelligently
+                streaming=True,  # Enable streaming for faster perceived response
+                verbose=False  # Reduce noise in output
             )
             
             return query_engine
