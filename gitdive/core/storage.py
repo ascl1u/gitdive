@@ -6,12 +6,13 @@ from typing import List, Optional
 import sys
 
 import chromadb
-from llama_index.core import Document, VectorStoreIndex
+from llama_index.core import Document, VectorStoreIndex, StorageContext
+from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from rich.console import Console
+
+from .config import GitDiveConfig
 from .constants import (
-    EMBEDDING_MODEL_NAME, 
     STORAGE_BASE_DIR, 
     MODELS_SUBDIR, 
     REPOS_SUBDIR, 
@@ -23,16 +24,11 @@ console = Console(force_terminal=True, file=sys.stdout)
 
 class StorageManager:
     """Handles ChromaDB storage operations."""
-    
-    def __init__(self):
-        # Create cache directory for embedding model to avoid download delays
-        cache_dir = Path.home() / STORAGE_BASE_DIR / MODELS_SUBDIR
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.embed_model = HuggingFaceEmbedding(
-            model_name=EMBEDDING_MODEL_NAME,
-            cache_folder=str(cache_dir)
-        )
+
+    def __init__(self, config: GitDiveConfig, embed_model: OllamaEmbedding):
+        """Initialize storage manager."""
+        self.config = config
+        self.embed_model = embed_model
     
     def get_storage_path(self, repo_path: Path) -> Path:
         """Generate unique storage path for repository."""
@@ -53,9 +49,15 @@ class StorageManager:
         
         try:
             chroma_client = chromadb.PersistentClient(path=str(storage_path))
-            chroma_collection = chroma_client.get_or_create_collection(CHROMA_COLLECTION_NAME)
+            chroma_collection = chroma_client.get_or_create_collection(
+                CHROMA_COLLECTION_NAME,
+                metadata={"hnsw:space": "cosine"}  # Use cosine similarity
+            )
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-            return VectorStoreIndex.from_vector_store(vector_store, embed_model=self.embed_model)
+            storage_context = StorageContext.from_defaults(vector_store=vector_store)
+            return VectorStoreIndex.from_documents(
+                [], storage_context=storage_context, embed_model=self.embed_model
+            )
         except chromadb.errors.ChromaError as e:
             console.print(f"[red]ChromaDB Error:[/red] {str(e)}")
             return None
@@ -99,10 +101,7 @@ class StorageManager:
             return 0
         
         try:
-            # Insert all documents - trust LlamaIndex internal processing
-            for doc in documents:
-                index.insert(doc)
-            
+            index.insert_nodes(documents)
             return len(documents)
         except Exception as e:
             console.print(f"[red]Error inserting documents:[/red] {str(e)}")
@@ -133,4 +132,4 @@ class StorageManager:
         except OSError as e:
             return False, f"Failed to delete index: {str(e)}", None
         except Exception as e:
-            return False, f"Unexpected error during cleanup: {str(e)}", None 
+            return False, f"Unexpected error during cleanup: {str(e)}", None

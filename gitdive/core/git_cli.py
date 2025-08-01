@@ -83,11 +83,11 @@ class GitCommand:
     def get_commit_diff(self, commit_hash: str) -> str:
         """Get raw diff for a specific commit with headers for file tracking."""
         try:
-            # Get raw diff with headers for file tracking
+            # Get raw diff with file headers for proper file tracking
             output = self.run([
                 'show', 
                 '--format=',  # No commit message
-                '--unified=0',  # No context lines
+                '--no-merges',  # Skip merge commits
                 commit_hash
             ])
             

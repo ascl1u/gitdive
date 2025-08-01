@@ -20,25 +20,26 @@ console = Console(force_terminal=True, file=sys.stdout)
 
 class GitIndexer:
     """Orchestrates git repository indexing using component-based architecture."""
-    
-    def __init__(self, repo_path: Path):
+
+    def __init__(
+        self,
+        repo_path: Path,
+        storage_manager: StorageManager,
+        commit_processor: CommitProcessor,
+        document_builder: DocumentBuilder,
+    ):
         """Initialize indexer with repository path and components."""
         self.repo_path = Path(repo_path).resolve()
-        
-        # Initialize configuration for LLM integration
-        self.config = GitDiveConfig.default()
-        
-        # Initialize git command utility
-        self.git_cmd = GitCommand(self.repo_path)
-        
-        # Initialize components
-        self.storage_manager = StorageManager()
-        self.commit_processor = CommitProcessor(self.git_cmd)
-        self.document_builder = DocumentBuilder()  # No longer needs config for raw indexing
+        self.storage_manager = storage_manager
+        self.commit_processor = commit_processor
+        self.document_builder = document_builder
         self.progress_reporter = ProgressReporter()
-        
+        self.git_cmd = self.commit_processor.git_cmd
+
         # Connect progress callback
-        self.commit_processor.set_progress_callback(self.progress_reporter.report_commit_progress)
+        self.commit_processor.set_progress_callback(
+            self.progress_reporter.report_commit_progress
+        )
         
     def validate_repository(self) -> bool:
         """
@@ -143,4 +144,4 @@ class GitIndexer:
         except Exception as e:
             timer.log_timing(f"Indexing failed with error: {str(e)}")
             console.print(f"[red]Error during indexing:[/red] {str(e)}")
-            return False 
+            return False
