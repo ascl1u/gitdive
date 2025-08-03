@@ -47,37 +47,39 @@ def index(
     from .core.git_cli import GitCommand
     from .core.processor import CommitProcessor
     from .core.builder import DocumentBuilder
+    from .core.logger import Logger
 
     # Set default path to current directory
     repo_path = Path(path) if path else Path.cwd()
 
     # Centralized dependency creation
+    logger = Logger(verbose)
     config = GitDiveConfig.default()
     embed_model = config.create_ollama_embedding()
-    storage_manager = StorageManager(config, embed_model)
-    git_cmd = GitCommand(repo_path)
-    commit_processor = CommitProcessor(git_cmd)
-    document_builder = DocumentBuilder()
+    storage_manager = StorageManager(config, embed_model, logger)
+    git_cmd = GitCommand(repo_path, logger)
+    commit_processor = CommitProcessor(git_cmd, logger)
+    document_builder = DocumentBuilder(logger)
 
     indexer = GitIndexer(
         repo_path,
         storage_manager,
         commit_processor,
-        document_builder
+        document_builder,
+        logger,
     )
 
     # Validate repository access
     if not indexer.validate_repository():
-        console.print("[red]Error:[/red] Invalid or inaccessible git repository")
         raise typer.Exit(1)
 
     # Start indexing process
-    success = indexer.index_repository(verbose=verbose)
+    success = indexer.index_repository()
 
     if success:
-        console.print("[green]✓[/green] Repository indexed successfully")
+        logger.info("[green]✓[/green] Repository indexed successfully")
     else:
-        console.print("[red]✗[/red] Indexing failed")
+        logger.error("Indexing failed")
         raise typer.Exit(1)
 
 
@@ -90,18 +92,20 @@ def ask(
     from .core.query import QueryService
     from .core.config import GitDiveConfig
     from .core.storage import StorageManager
-
-    # Echo question with consistent theming
-    console.print(f"[blue]Question:[/blue] {question}")
+    from .core.logger import Logger
 
     # Centralized dependency creation
+    logger = Logger(verbose)
     config = GitDiveConfig.default()
     embed_model = config.create_ollama_embedding()
-    storage_manager = StorageManager(config, embed_model)
+    storage_manager = StorageManager(config, embed_model, logger)
+
+    # Echo question with consistent theming
+    logger.info(f"[blue]Question:[/blue] {question}")
 
     # Process query
-    query_service = QueryService(Path.cwd(), config, storage_manager)
-    success = query_service.ask(question, verbose=verbose)
+    query_service = QueryService(Path.cwd(), config, storage_manager, logger)
+    success = query_service.ask(question)
 
     if not success:
         raise typer.Exit(1)
@@ -113,35 +117,37 @@ def cleanup():
     from .core.git_cli import GitCommand
     from .core.storage import StorageManager
     from .core.config import GitDiveConfig
+    from .core.logger import Logger
 
     # Use current directory as repository path
     repo_path = Path.cwd()
+    logger = Logger()
 
     # Validate repository access
-    git_cmd = GitCommand(repo_path)
+    git_cmd = GitCommand(repo_path, logger)
     if not git_cmd.validate_repository():
-        console.print("[red]Error:[/red] Invalid or inaccessible git repository")
+        logger.error("Invalid or inaccessible git repository")
         raise typer.Exit(1)
 
     # Ask for user confirmation
     if not typer.confirm(f"Delete index for repository: {repo_path}?"):
-        console.print("[blue]Cleanup cancelled[/blue]")
+        logger.info("[blue]Cleanup cancelled[/blue]")
         raise typer.Exit(0)
 
     # Perform cleanup
     config = GitDiveConfig.default()
     embed_model = config.create_ollama_embedding()
-    storage_manager = StorageManager(config, embed_model)
+    storage_manager = StorageManager(config, embed_model, logger)
     success, message, cleaned_path = storage_manager.cleanup_repository_index(repo_path)
 
     if success:
         if cleaned_path:
-            console.print(f"[green]✓[/green] {message}")
-            console.print(f"[dim]Removed: {cleaned_path}[/dim]")
+            logger.info(f"[green]✓[/green] {message}")
+            logger.info(f"[dim]Removed: {cleaned_path}[/dim]")
         else:
-            console.print(f"[blue]{message}[/blue]")
+            logger.info(f"[blue]{message}[/blue]")
     else:
-        console.print(f"[red]Error:[/red] {message}")
+        logger.error(message)
         raise typer.Exit(1)
 
 

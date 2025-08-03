@@ -1,57 +1,31 @@
 """Progress reporting for GitDive."""
 
 from pathlib import Path
-import sys
-
-from rich.console import Console
-from .constants import COMMIT_HASH_DISPLAY_LENGTH, PROGRESS_DOTS_PER_LINE
-
-console = Console(force_terminal=True, file=sys.stdout)
+from .logger import Logger
 
 
 class ProgressReporter:
     """Handles user progress feedback."""
-    
-    def __init__(self):
-        self.dots_printed = 0
-    
+
+    def __init__(self, logger: Logger):
+        """Initialize with a logger instance."""
+        self.logger = logger
+
     def report_start(self, repo_path: Path):
         """Report indexing start."""
-        console.print(f"[green]Indexing repository:[/green] {repo_path}")
-    
+        self.logger.info(f"[green]Indexing repository:[/green] {repo_path}")
+
     def report_commits_found(self, count: int):
         """Report number of commits found."""
         if count == 0:
-            console.print("[yellow]Warning:[/yellow] No commits found in repository.")
+            self.logger.info("[yellow]Warning:[/yellow] No commits found in repository.")
         else:
-            console.print(f"[blue]Found {count} commits with indexable content[/blue]")
-            console.print("Processing commits ", end="")
-            console.file.flush()  # Force immediate output
-            self.dots_printed = 0
-    
-    def report_commit_progress(self):
-        """Show a single dot for commit progress."""
-        console.print(".", end="")
-        console.file.flush()  # Force immediate output
-        self.dots_printed += 1
-        
-        # Add line break for readability
-        if self.dots_printed % PROGRESS_DOTS_PER_LINE == 0:
-            console.print()
-    
-    def report_processing_commit(self, commit_hash: str, summary: str, position: int):
-        """Report individual commit processing (for first few)."""
-        if position <= 5:
-            console.print(f"[dim]Processed commit: {commit_hash[:COMMIT_HASH_DISPLAY_LENGTH]} - {summary}[/dim]")
-    
+            self.logger.info(f"[blue]Found {count} commits with indexable content[/blue]")
+
     def report_completion(self, count: int, storage_path: Path):
         """Report indexing completion."""
-        # Add final line break if we printed dots
-        if self.dots_printed > 0:
-            console.print()  # New line after dots
-        
         if count > 0:
-            console.print(f"[green]✓[/green] Successfully indexed {count} commits to ChromaDB")
-            console.print(f"[dim]Storage location: {storage_path}[/dim]")
+            self.logger.info(f"[green]✓[/green] Successfully indexed {count} commits to ChromaDB")
+            self.logger.debug(f"Storage location: {storage_path}")
         else:
-            console.print("[yellow]Warning:[/yellow] No commits contained indexable content.") 
+            self.logger.info("[yellow]Warning:[/yellow] No commits contained indexable content.")

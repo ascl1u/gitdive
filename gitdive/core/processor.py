@@ -1,48 +1,35 @@
 """Git commit processing for GitDive."""
 
 from typing import List
-import sys
-
-from rich.console import Console
 
 from .git_cli import GitCommand
 from .models import CommitData
 from .constants import COMMIT_HASH_DISPLAY_LENGTH
-
-console = Console(force_terminal=True, file=sys.stdout)
+from .logger import Logger
 
 
 class CommitProcessor:
     """Handles git commit data extraction using git CLI."""
-    
-    def __init__(self, git_cmd: GitCommand):
-        """Initialize with GitCommand instance."""
+
+    def __init__(self, git_cmd: GitCommand, logger: Logger):
+        """Initialize with GitCommand instance and logger."""
         self.git_cmd = git_cmd
-        self.progress_callback = None
-    
-    def set_progress_callback(self, callback):
-        """Set callback for progress updates."""
-        self.progress_callback = callback
-    
+        self.logger = logger
+
     def extract_commits(self) -> List[CommitData]:
         """Extract all commits with their content."""
         commits_data = []
-        
+
         try:
             # Get all commits metadata in one efficient call
             commits_info = self.git_cmd.get_commits()
-            total_commits_processed = len(commits_info)
-            
-            for i, commit_info in enumerate(commits_info, 1):
+
+            for commit_info in commits_info:
                 commit_hash = commit_info['hash']
-                
-                # Show progress dot
-                if self.progress_callback:
-                    self.progress_callback()
-                
+
                 # Extract content using git CLI
                 content = self._extract_commit_content(commit_hash)
-                
+
                 if content.strip():  # Only include commits with actual content
                     commit_data = CommitData(
                         hash=commit_hash,
@@ -52,12 +39,12 @@ class CommitProcessor:
                         content=content
                     )
                     commits_data.append(commit_data)
-            
+
             return commits_data
         except Exception as e:
-            console.print(f"[red]Error extracting commits:[/red] {str(e)}")
+            self.logger.error(f"Error extracting commits: {str(e)}")
             return []
-    
+
     def _extract_commit_content(self, commit_hash: str) -> str:
         """Extract content from a single commit using git CLI."""
         try:
@@ -66,7 +53,7 @@ class CommitProcessor:
             else:
                 return self._extract_regular_commit_content(commit_hash)
         except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Error processing commit {commit_hash[:COMMIT_HASH_DISPLAY_LENGTH]}: {str(e)}")
+            self.logger.error(f"Error processing commit {commit_hash[:COMMIT_HASH_DISPLAY_LENGTH]}: {str(e)}")
             return ""
     
     def _extract_initial_commit_content(self, commit_hash: str) -> str:
@@ -93,5 +80,3 @@ class CommitProcessor:
         # Return raw diff content with headers intact for proper semantic parsing
         # File filtering and content extraction will be handled by GitDiffParser
         return diff_content
-    
- 

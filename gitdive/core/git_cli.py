@@ -2,21 +2,20 @@
 
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-from rich.console import Console
 from .constants import GIT_LOG_FORMAT, GIT_FIELD_COUNT
-
-console = Console()
+from .logger import Logger
 
 
 class GitCommand:
     """Reliable git CLI wrapper with error handling."""
-    
-    def __init__(self, repo_path: Path):
-        """Initialize with repository path."""
+
+    def __init__(self, repo_path: Path, logger: Logger):
+        """Initialize with repository path and logger."""
         self.repo_path = Path(repo_path).resolve()
-    
+        self.logger = logger
+
     def run(self, args: List[str], suppress_errors: bool = False) -> str:
         """Run git command and return output."""
         try:
@@ -32,11 +31,11 @@ class GitCommand:
             return result.stdout
         except subprocess.CalledProcessError as e:
             if not suppress_errors:
-                console.print(f"[yellow]Git command failed:[/yellow] git {' '.join(args)}")
-                console.print(f"[yellow]Error:[/yellow] {e.stderr}")
+                self.logger.error(f"Git command failed: git {' '.join(args)}")
+                self.logger.error(f"Error: {e.stderr}")
             raise
         except FileNotFoundError:
-            console.print("[red]Error:[/red] Git not found in PATH")
+            self.logger.error("Git not found in PATH")
             raise
     
     def validate_repository(self) -> bool:
@@ -121,4 +120,4 @@ class GitCommand:
             output = self.run(['show', f'{commit_hash}:{file_path}'])
             return output
         except subprocess.CalledProcessError:
-            return "" 
+            return ""
