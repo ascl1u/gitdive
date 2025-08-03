@@ -3,7 +3,7 @@
 import re
 from typing import List, Set
 
-from .models import StructuralChanges
+from .models import StructuralChanges, DiffHunk
 from .constants import IGNORE_FILE_PATTERNS
 from .logger import Logger
 
@@ -200,3 +200,50 @@ class GitDiffParser:
             lines_added=0,
             lines_removed=0
         )
+
+    def split_diff_into_hunks(self, diff_content: str) -> List[DiffHunk]:
+        """
+        Split a raw diff into a list of DiffHunk objects.
+
+        Args:
+            diff_content: The raw diff content from a git commit.
+
+        Returns:
+            A list of DiffHunk objects, each representing a single change hunk.
+        """
+        hunks = []
+        current_file = None
+        current_hunk_lines = []
+
+        lines = diff_content.split('\n')
+
+        for line in lines:
+            file_match = re.match(self.file_pattern, line)
+            if file_match:
+                # When a new file is encountered, save the last hunk of the previous file
+                if current_file and current_hunk_lines:
+                    hunks.append(DiffHunk(file_path=current_file, content='\n'.join(current_hunk_lines)))
+                    current_hunk_lines = []
+
+                current_file = file_match.group(2)
+                if not self._should_include_file(current_file):
+                    current_file = None  # Skip this file
+                continue
+
+            if not current_file:
+                continue
+
+            hunk_header_match = re.match(r'^@@ -\d+,\d+ \+\d+,\d+ @@', line)
+            if hunk_header_match:
+                # When a new hunk starts, save the previous one
+                if current_hunk_lines:
+                    hunks.append(DiffHunk(file_path=current_file, content='\n'.join(current_hunk_lines)))
+                current_hunk_lines = [line]
+            elif current_hunk_lines:
+                current_hunk_lines.append(line)
+
+        # Append the last hunk
+        if current_file and current_hunk_lines:
+            hunks.append(DiffHunk(file_path=current_file, content='\n'.join(current_hunk_lines)))
+
+        return hunks

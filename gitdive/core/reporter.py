@@ -25,7 +25,7 @@ class ProgressReporter:
     def report_completion(self, count: int, storage_path: Path):
         """Report indexing completion."""
         if count > 0:
-            self.logger.info(f"[green]✓[/green] Successfully indexed {count} commits to ChromaDB")
+            self.logger.info(f"[green]✓[/green] Successfully created {count} documents in ChromaDB")
             self.logger.debug(f"Storage location: {storage_path}")
         else:
             self.logger.info("[yellow]Warning:[/yellow] No commits contained indexable content.")

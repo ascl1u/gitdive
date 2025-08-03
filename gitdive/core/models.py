@@ -24,4 +24,11 @@ class StructuralChanges:
     removed_classes: List[str]
     modified_files: List[str]
     lines_added: int
-    lines_removed: int 
+    lines_removed: int
+
+
+@dataclass(frozen=True)
+class DiffHunk:
+    """Immutable data container for a single diff hunk."""
+    file_path: str
+    content: str
