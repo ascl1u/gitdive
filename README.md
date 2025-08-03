@@ -5,9 +5,10 @@ CLI tool for natural language conversations with git repository history. Index c
 ## Prerequisites
 
 - Python 3.9+
-- [Ollama](https://ollama.ai) with a compatible model:
+- [Ollama](https://ollama.ai) with a compatible model. You will need a chat model and an embedding model.
   ```bash
-  ollama pull phi3:3.8b  # Recommended
+  ollama pull phi3:3.8b
+  ollama pull nomic-embed-text:v1.5 
   ```
 
 ## Installation
@@ -22,7 +23,6 @@ pip install gitdive
 ```bash
 gitdive index                    # Current directory
 gitdive index /path/to/repo      # Specific repository
-gitdive index --verbose          # Show timing details
 ```
 
 **Ask questions:**
@@ -42,9 +42,14 @@ gitdive cleanup  # Remove stored index
 Configure via environment variables:
 
 ```bash
-export GITDIVE_LLM_MODEL="llama3.1:8b"        # Default: phi3:3.8b
-export GITDIVE_OLLAMA_URL="http://localhost:11434"  # Default
-export GITDIVE_LLM_TIMEOUT="300"              # Default: 180
+export GITDIVE_LLM_MODEL="llama3.1:8b"              # Default: phi3:3.8b
+export GITDIVE_OLLAMA_URL="http://localhost:11434"        # Default
+export GITDIVE_LLM_TIMEOUT="300"                    # Default: 360
+
+# Embedding model configuration
+export GITDIVE_EMBEDDING_MODEL="nomic-embed-text:v1.5" # Default
+export GITDIVE_EMBEDDING_OLLAMA_URL="http://localhost:11434" # Default
+export GITDIVE_EMBEDDING_TIMEOUT="300"              # Default: 360
 ```
 
 Indexes are stored in `~/.gitdive/repos/`
@@ -53,7 +58,7 @@ Indexes are stored in `~/.gitdive/repos/`
 
 - Python 3.9+
 - Git repository
-- Ollama with compatible model
+- Ollama with compatible models
 
 ## License
 
