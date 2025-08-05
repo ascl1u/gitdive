@@ -100,9 +100,6 @@ def ask(
     embed_model = config.create_ollama_embedding()
     storage_manager = StorageManager(config, embed_model, logger)
 
-    # Echo question with consistent theming
-    logger.info(f"[blue]Question:[/blue] {question}")
-
     # Process query
     query_service = QueryService(Path.cwd(), config, storage_manager, logger)
     success = query_service.ask(question)

@@ -18,7 +18,7 @@ DEFAULT_SIMILARITY_TOP_K = 3
 
 # File filtering
 IGNORE_FILE_PATTERNS = [
-    '.git/', '__pycache__/', 'node_modules/', 
+    '.git/', '__pycache__/', 'node_modules/', 'README.md', 'LICENSE',
     '.lock', '.png', '.jpg', '.pdf', '.zip', '.exe', '.dll'
 ]
 
